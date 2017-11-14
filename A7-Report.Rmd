@@ -1,0 +1,74 @@
+---
+title: "Assignment 7: Clustering"
+author: "Ankita, Jiangtao"
+date: "11/03/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+suppressMessages(library(ggplot2))
+knitr::opts_knit$set(root.dir = normalizePath(getwd()))
+```
+
+###<span style = "color:#588bae">Objective</span> 
+ Given a million song dataset,perform iterative computations, computations on a graph, learning basic clustering algorithms.
+
+###<span style = "color:#588bae">Dataset</span> 
+ We are using a dataset based on the metadata in the Million Song Database. 
+ 
+###<span style = "color:#588bae">Preparing Data</span>
+ - Checks done to remove empty entries in the dataset.
+ - Check done to dis-regard non-float entries in `duration`, `tempo`, `song_hotness` columns.
+ 
+###<span style = "color:#588bae">Implementation</span>
+Subproblem 1 : Clustering
+    
+   K-Means Clustering - 
+    - For clustering using k-means, we 
+     Our solution first takes the two files 'song_info.csv' and 'artist_terms.csv' and converts it into `mapPartitions` that converts each partition of the source RDD into multiple elements of the result.
+  - After that, for each task like finding the distincts and top'5, we select only the required column from the RDD thus avoiding reading all the columns of the dataset everytime. This improves the execution time as well.
+   Hierarchical Agglomerative Clustering - 
+   
+   
+###<span style = "color:#588bae">Output</span>
+
+Fuzzy loudness: 
+
+```{r, echo= FALSE}
+loudnessResult <-
+read.csv("OutResult/A7-Loudness-Results.csv")
+
+loudnessResult$Cluster = as.factor(loudnessResult$Cluster)
+ggplot(loudnessResult,aes(x = Cluster,y=Loudness)) + geom_jitter(aes(col=loudnessResult$Cluster)) + labs(y="Loudness",x="Cluster",col="Clusters") + scale_color_manual(labels = c("Quiet", "Medium", "Loud"), values = c("light green", "pink", "light blue"))
+```
+
+Fuzzy length: 
+
+```{r, echo= FALSE}
+lengthResult <-
+read.csv("OutResult/A7-Length-Results.csv")
+
+lengthResult$Cluster = as.factor(lengthResult$Cluster)
+ggplot(lengthResult,aes(x = Cluster,y=Length)) + geom_jitter(aes(col=lengthResult$Cluster)) + labs(y="Length",x="Cluster",col="Clusters") + scale_color_manual(labels = c("Short", "Medium", "Long"), values = c("light green", "pink", "light blue"))
+```
+
+
+Fuzzy tempo:
+
+```{r, echo= FALSE}
+tempoResult <-
+read.csv("OutResult/A7-Tempo-Results.csv")
+
+tempoResult$Cluster = as.factor(tempoResult$Cluster)
+ggplot(tempoResult,aes(x = Cluster,y=Tempo)) + geom_jitter(aes(col=tempoResult$Cluster)) + labs(y="Tempo",x="Cluster",col="Clusters") + scale_color_manual(labels = c("Slow", "Medium", "Fast"), values = c("light green", "pink", "light blue"))
+```
+
+### <span style='color:#588BAE'>Local Execution Environment Specifications:</span>
+
+  - Macintosh 2.5Ghz i7 Quad Core
+  - 16 GB RAM
+  - macOS Sierra Version 10.12.6
+  - Java version : 1.8 
+  - Scala version : 2.11.11
+  - Spark version : 2.2.0

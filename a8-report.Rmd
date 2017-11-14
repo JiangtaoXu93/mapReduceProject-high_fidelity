@@ -1,0 +1,239 @@
+---
+title: "a8-report"
+author: "Jiangtao Xu"
+date: "11/13/2017"
+output: html_document
+---
+
+```{r setup, echo=FALSE, results='hide',message=FALSE, warning=FALSE, cache=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = normalizePath(getwd()))
+library(ggplot2)
+require(gridExtra)
+library(knitr)
+library(kableExtra)
+```
+
+
+## Environment
+
+OS: OSX
+Processor Name:	Intel Core i7
+Processor Speed:	2.8 GHz
+Number of Processors:	1
+Total Number of Cores:	4
+L2 Cache (per Core):	256 KB
+L3 Cache:	6 MB
+Memory:	16 GB 
+SSD: 256 GB
+
+## Implementing K-means and HAC
+
+### K-Means Clustering
+
+**Get initial centroid:** get data from input file, map each row of data into `SongInfo` object. `SongInfo` provides function to calculate distance like `calculateDistance()`, valid checking function `isValid()`, function to get required filed like `getSymbol()`, which will be used later.
+
+ Select 3 `SongInfo` randomly by using `takeSample()`, if selected data is invalid, then reassign random value to that data.
+ 
+ **Get cluster by centroids:** filter the data if it's valid. According to the distance from 3 centroids, clustering data into 3 parts by using `getClusterByCentroids()` function.
+ 
+ **Recalculate centroids:** for the new 3 clustering, recalculate the centroid nodes for each part, use `getCentroids()` function.
+ 
+ **Output:** repeat the above steps 10 times. and output the final centroids and clusters.
+
+
+### Hierarchical Agglomerative Clustering (HAC):
+
+**Sort SongInfo:** collect and order SongInfo data by required field where use `getCoordinate()` fucntion to get values to be sorted, according to the input symbol, return the different coordinate for 1 dimension and 2 dimension data. At the end, map each data into `List[SongInfo]` and append with index by using `zipWithIndex` function. This step return clusters named `clusters` in program.
+
+For example, for input value {2,3,5,8}we have {(list(2),1), (list(3),2), (list(5),3), (list(8),4)} from 1st step
+
+**Get min pair:** Calculate the distance for each possible combination of `List[SongInfo]`, select the minimal distance pair.
+
+For example, we could get minimal distance pair {list(2),list(3)} from 2nd step.
+
+**Combine the min pair:** remove the element of the minimal pair in `clusters`, and insert the minimal pair into the removed place.
+
+For example,we would delete(list(2),1), (list(3),2) from `clusters` , and insert (list(2,3),1)  in the removed place, here we get { (list(2,3),1), (list(5),3), (list(8),4)}
+
+**Output** repeat the 2nd, 3rd steps until the length of `clusters` is equals to 3, then output the clusters.
+
+
+## Result
+
+To show and compare the result, use MillionSongSubset as input data. The flowing are results and comparisons between K-Means and HAC.
+
+There are two graphs in each section that decribe the result of cluster by k-means and HAC. For each graph, there are 2 parts of the clustering: left(up for the combined hotness) is the distribution of 3 clusters (l: large, m: medium, s: small which is named according to the value of centroids of each parts); right(down for the combined hotness)  is the percent portion of each cluster. 
+
+```{r definitions, include=FALSE, warning=FALSE, echo = FALSE}
+library(dplyr)
+require(gridExtra)
+library(scales)
+
+HOME <- getwd()
+
+get_cluster <- function (file1, cluster_labels) {
+  data <- read.csv(file1, header=FALSE) %>% rename(cluster.no=V1, value=V2)
+  names <- data %>% 
+    group_by(cluster.no) %>% summarise(center=mean(value)) %>% arrange(center) %>% 
+    mutate(cluster=!!cluster_labels)
+  data %>% left_join(names, by="cluster.no") %>% select(cluster, value)
+}
+
+get_2d_cluster <- function (file, cluster_labels) {
+  data <- read.csv(file, header=FALSE) %>% rename(cluster.no=V1, x=V2, y=V3)
+  names <- data %>% 
+    group_by(cluster.no) %>% summarise(center=mean(x * y)) %>% arrange(center) %>% 
+    mutate(cluster=!!cluster_labels)
+  data %>% left_join(names, by="cluster.no") %>% select(cluster, x, y)
+}
+
+clustering <- function(data, data2, title="k-means", title2= "HAC", curlabel) {
+  cluster.plot <-
+    ggplot(data=data, aes(cluster, value/60, fill="black")) +
+    geom_violin(position = "dodge") +
+    labs(title=curlabel, subtitle=title) +
+    ylab(curlabel) +
+    scale_y_continuous(labels=function(x) ifelse(x==0, 0, dollar_format( prefix = "")(x))) +
+    theme(axis.title.x=element_blank(), legend.position="none") +
+    scale_fill_grey() + scale_color_grey()
+  
+  count <- data %>% group_by(cluster) %>% count
+  
+  count.plot <-
+    ggplot(data=count, aes(x="", y=n, fill=cluster)) +
+    geom_bar(width=1, stat="identity", position=position_stack(reverse=TRUE)) +
+    geom_label(
+      aes(label=paste0(format(n/sum(n)*100, digits=0), "%"), fill="white"), 
+      position="stack") +
+    labs(title="", subtitle="") +
+    ylab("songs") +
+    scale_y_continuous(position="right", 
+                       labels=function(x) ifelse(x>=1000000, paste0(x/1000000,"mln"), ifelse(x==0, x, paste0(x/1000,"k")))) +
+    theme(axis.title.x=element_blank(), legend.position="none", axis.ticks.x=element_blank()) +
+    scale_fill_grey() + scale_color_grey()
+  
+cluster2.plot <-
+    ggplot(data2, aes(cluster, value/60, fill="black")) +
+    geom_violin(position = "dodge") +
+    labs(title=curlabel, subtitle=title2) +
+    ylab(curlabel) +
+    scale_y_continuous(labels=function(x) ifelse(x==0, 0, dollar_format( prefix = "")(x))) +
+    theme(axis.title.x=element_blank(), legend.position="none") +
+    scale_fill_grey() + scale_color_grey()
+  
+  count2 <- data2 %>% group_by(cluster) %>% count
+  
+  count2.plot <-
+    ggplot(data=count2, aes(x="", y=n, fill=cluster)) +
+    geom_bar(width=1, stat="identity", position=position_stack(reverse=TRUE)) +
+    geom_label(
+      aes(label=paste0(cluster, ":", format(n/sum(n)*100, digits=0), "%"), fill="white"), 
+      position="stack") +
+    labs(title="", subtitle="") +
+    ylab("songs") +
+    scale_y_continuous(position="right", 
+                       labels=function(x) ifelse(x>=1000000, paste0(x/1000000,"mln"), ifelse(x==0, x, paste0(x/1000,"k")))) +
+    theme(axis.title.x=element_blank(), legend.position="none", axis.ticks.x=element_blank()) +
+    scale_fill_grey() + scale_color_grey()
+  
+  grid.arrange(cluster.plot, count.plot,cluster2.plot, count2.plot, ncol=4, widths=c(1,1,1,1))
+
+}
+
+hotness_2d_clustering <- function(data, title) {
+  cluster.plot <-
+    ggplot(data, aes(x=floor(x*12)/12, y=floor(y*12)/12, color=cluster, shape=cluster)) + 
+    geom_count() +
+    labs(title="By combined hotness", subtitle=title, size="# songs", colour="cluster") +
+    ylab("artist hotness") + xlab("song hotness") +
+    scale_size_continuous(labels=function(x) ifelse(x>=1000000, paste0(x/1000000,"mln"), ifelse(x==0, x, paste0(x/1000,"k")))) +
+    #scale_fill_grey() + scale_color_grey() 
+    scale_color_brewer(palette="Set1", direction=-1)
+
+  count <- data %>% group_by(cluster) %>% count
+
+  count.plot <- 
+    ggplot(data=count, aes(x="", y=n, fill=cluster)) +
+    geom_bar(width=2, stat="identity", position=position_stack(reverse = TRUE)) +
+    geom_label(
+      aes(label=paste0(cluster, ": ", format(n/sum(n)*100, digits=0), "%")),  
+      position=position_stack(reverse = TRUE)) +
+    labs(title="", subtitle="") +
+    ylab("songs") +
+    scale_y_continuous(position="right", 
+                       labels=function(x) ifelse(x>=1000000, paste0(x/1000000,"mln"), ifelse(x==0, x, paste0(x/1000,"k")))) +
+    theme(axis.title.x=element_blank(), legend.position="none", axis.ticks.x=element_blank()) +
+    #scale_fill_grey() + scale_color_grey()
+    scale_fill_brewer(palette="Set1", direction=-1)
+ 
+ grid.arrange(cluster.plot, count.plot, ncol=2, widths=c(3,1))
+}
+
+
+
+```
+
+##### Fuzzy Loudness
+
+```{r kmeans.loud.full.plots, fig.width=6, fig.height=3, echo=FALSE}
+kmeans.loud.full  <- get_cluster(file.path(HOME, "output/kmeans-fuzzyLoudness.csv"), c("s","m", "l"))
+hac.loud.full <- get_cluster(file.path(HOME, "output/hac-fuzzyLoudness.csv"), c("s","m","l"))
+clustering(kmeans.loud.full, hac.loud.full, "k-means","HAC","loud")
+```
+
+##### Fuzzy Length
+
+The two graph below
+
+```{r kmeans.length.full.plots, fig.width=6, fig.height=3, echo=FALSE}
+kmeans.length.full  <- get_cluster(file.path(HOME, "output/kmeans-fuzzyLength.csv"), c("s","m", "l"))
+hac.length.full <- get_cluster(file.path(HOME, "output/hac-fuzzyLength.csv"), c("s","m","l"))
+clustering(kmeans.length.full, hac.length.full, "k-means","HAC","length")
+```
+
+##### Fuzzy Tempo
+
+
+```{r kmeans.tempo.full.plots, fig.width=6, fig.height=3, echo=FALSE}
+kmeans.tempo.full  <- get_cluster(file.path(HOME, "output/kmeans-fuzzyTempo.csv"), c("s","m", "l"))
+hac.tempo.full <- get_cluster(file.path(HOME, "output/hac-fuzzyTempo.csv"), c("s","m","l"))
+clustering(kmeans.tempo.full, hac.tempo.full, "k-means","HAC","tempo")
+```
+
+##### Fuzzy Hotness
+For song hotness, since there are a lot of NA, empty and 0 of hotness filed, so I just filter data with that filed.
+
+```{r kmeans.hotness.full.plots, fig.width=6, fig.height=3, echo=FALSE}
+kmeans.hotness.full  <- get_cluster(file.path(HOME, "output/kmeans-fuzzyHotness.csv"), c("s","m", "l"))
+hac.hotness.full <- get_cluster(file.path(HOME, "output/hac-fuzzyHotness.csv"), c("s","m","l"))
+clustering(kmeans.hotness.full, hac.hotness.full, "k-means","HAC","hotness")
+```
+
+##### Combined Hotness
+For song hotness and artist hotness, since there are a lot of NA, empty and 0 of hotness filed, so I just filter data with that filed.
+
+```{r kmeans.combine.full.plots, fig.width=6, fig.height=3, echo=FALSE}
+kmeans.combine.full  <- get_2d_cluster(file.path(HOME, "output/kmeans-combinedHotness.csv"), c("s","m", "l"))
+hac.combine.full <- get_2d_cluster(file.path(HOME, "output/hac-combinedHotness.csv"), c("s","m","l"))
+hotness_2d_clustering(kmeans.combine.full, "k-means")
+hotness_2d_clustering(hac.combine.full, "hac")
+```
+
+
+## Obervation and Conclusion
+
+####Performance
+I run it on local machine, for K-Means, it takes around 6 seconds; for HAC, it takes around 20 seconds to finish.
+Possible Reason: for HAC, it takes O(n) time complexity to get every pair when using `zip()` function , then it need O(n) for both find and inserting min pair operation. It seems like not much time consuming, however, before this step, using `collect()` function would be very space expensive, especially for big data input, that maybe the factor that influence the time, and that's also why I cannot get result from big input for HAC.
+
+####Result
+
+According to the plot, it seeams kmeans render a more reasonable result, the percentage of each clusters is more balanced than HAC. For example: (39%, 43%, 19%) for the tmpo of kmeans compared to (1%, 98% 1%) of HAC.
+
+So, K-Means might be a more powerful cluster algorithm when it comes to performance and specification.
+
+
+
+
+
