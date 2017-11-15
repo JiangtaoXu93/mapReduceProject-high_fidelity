@@ -1,4 +1,4 @@
-# a8-ankita-jiangtao
+# a8-jiangtao
 
 http://janvitek.org/pdpmr/f17/task-a8-high-fidelity.html
 http://janvitek.org/pdpmr/f17/task-a7-high-fidelity.html
