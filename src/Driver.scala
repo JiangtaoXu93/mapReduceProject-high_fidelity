@@ -1,8 +1,8 @@
 import java.io.{File, PrintWriter}
+import HAC.runHAC
+import Kmeans.runKmeans
 
-import Algorithm.Kmeans.runKmeans
-import Algorithm.HAC.runHAC
-import data.{ArtistSimilar, ArtistTerm, SongInfo}
+
 import org.apache.spark.{SparkConf, SparkContext}
 //author: Jiangtao
 object Driver {
@@ -11,12 +11,8 @@ object Driver {
   def main(args: Array[String]): Unit = {
     val conf = new SparkConf().setMaster("local").setAppName("Million Classification")
     val sc = new SparkContext(conf)
-    val songInput = sc.textFile("MillionSongSubset/song_info.csv")
-    val similarityInput = sc.textFile("MillionSongSubset/similar_artists.csv")
-    val termInput = sc.textFile("MillionSongSubset/artist_terms.csv")
+    val songInput = sc.textFile("input/MillionSongSubset/song_info.csv")
     val songInfos = songInput.mapPartitionsWithIndex { (idx, iterate) => if (idx == 0) iterate.drop(1) else iterate }.map(line => new SongInfo(line))
-    val similarArtists = similarityInput.mapPartitionsWithIndex { (idx, iterate) => if (idx == 0) iterate.drop(1) else iterate }.map(line => new ArtistSimilar(line))
-    val artistTerms = termInput.mapPartitionsWithIndex { (idx, iterate) => if (idx == 0) iterate.drop(1) else iterate }.map(line => new ArtistTerm(line))
     val centroids = new Array[SongInfo](kCluster)
 
     for (i <- 0 until kCluster) {
@@ -33,13 +29,13 @@ object Driver {
     }
 
 
-    runHAC(songInfos, 'fuzzyLoudness)
+    //runHAC(songInfos, 'fuzzyLoudness)
 //    runHAC(songInfos, 'fuzzyLength)
 //    runHAC(songInfos, 'fuzzyTempo)
 //    runHAC(songInfos, 'fuzzyHotness)
 //    runHAC(songInfos, 'combinedHotness)
 
-//    runKmeans(songInfos, centroids, 'fuzzyLoudness)
+    runKmeans(songInfos, centroids, 'fuzzyLoudness)
 //    runKmeans(songInfos, centroids, 'fuzzyLength)
 //    runKmeans(songInfos, centroids, 'fuzzyTempo)
 //    runKmeans(songInfos, centroids, 'fuzzyHotness)
